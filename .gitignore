@@ -1,0 +1,7 @@
+signals.duckdb
+sim_output/*
+sim_output
+misc/*
+misc
+otter
+0.0.0.0
