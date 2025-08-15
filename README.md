@@ -1,23 +1,23 @@
 # Otter
 
-Otter is a backtester for alt-coins, existing within the Solana blockchain.
-The project was hackily thrown together over a week, with an emphasis on functionality - rather then readability.
-The aim of the project was to test "signal algorithms", hosted by many developers - which claim to have filters that are able to filter down the influx of new tokens on Solana, and generate calls that would leave a user in profit. Some channels advertised a win rate of up to 80%! Which is statistically very unlikely.
-I may get round to refactoring and cleaning up the codebase, however this project has mostly been abandoned.
+Otter is a backtester for alt-coins, existing within the Solana blockchain.  
+The project was hackily thrown together over a week, with an emphasis on functionality - rather then readability.  
+The aim of the project was to test "signal algorithms", hosted by many developers - which claim to have filters that are able to filter down the influx of new tokens on Solana, and generate calls that would leave a user in profit. Some channels advertised a win rate of up to 80%! Which is statistically very unlikely.  
+I may get round to refactoring and cleaning up the codebase, however this project has mostly been abandoned.  
 
 # Simulation Output
-Due to the hacky nature of the project, simulations are stored as `.json` files in the `sim_output` directory.
-Each simulation has five files: `_assets`, `_balance_updates`, `_metadata`, `_portfolio` and `_trade_history`.
-Assets is pretty much a direct copy of the `file_metadata` database, however it only contains the data for the tokens that were bought during that simulation.
-Balance Updates stores a copy of the wallet balance (in USD) every tick (block number). It's important to note that this uses the USD/SOL conversion rate pulled from Codex to ensure that the USD balance also factors in moving SOL prices. As these simulations can span months in IRL time, this is very important. Sometimes, the SOL balance that Codex provides is invalid however. In this situation, the wallet balance data for that tick will **not** be saved.
+Due to the hacky nature of the project, simulations are stored as `.json` files in the `sim_output` directory.  
+Each simulation has five files: `_assets`, `_balance_updates`, `_metadata`, `_portfolio` and `_trade_history`.  
+Assets is pretty much a direct copy of the `file_metadata` database, however it only contains the data for the tokens that were bought during that simulation.  
+Balance Updates stores a copy of the wallet balance (in USD) every tick (block number). It's important to note that this uses the USD/SOL conversion rate pulled from Codex to ensure that the USD balance also factors in moving SOL prices. As these simulations can span months in IRL time, this is very important. Sometimes, the SOL balance that Codex provides is invalid however. In this situation, the wallet balance data for that tick will **not** be saved.  
 Metadata contains the copy of the settings that the simulation was run with. Quite important if you're comparing strategies.
-Portfolio is simple, and can likely be merged into Balance Updates. It provides the ending stats for the wallet balance in SOL, and the worth of all held tokens at the finish block in SOL.
-Trade History is a log of all trades taken by the simulator.
+Portfolio is simple, and can likely be merged into Balance Updates. It provides the ending stats for the wallet balance in SOL, and the worth of all held tokens at the finish block in SOL.  
+Trade History is a log of all trades taken by the simulator.  
 
 # Web API
-The project exposes a web API, for easy integration into a CLI / Web Dashboard. I did build a web dashboard for this project, which I may release later. If I do choose to OSS the dashboard, I will leave a link here.
+The project exposes a web API, for easy integration into a CLI / Web Dashboard. I did build a web dashboard for this project, which I may release later. If I do choose to OSS the dashboard, I will leave a link here.  
 
-The Web API exposes 4 methods.
+The Web API exposes 4 methods.  
 
 `/list_sims` - returns a JSON list of all simulators metadata.
 ```json
@@ -82,9 +82,9 @@ type SimStatus struct {
 ```
 
 # Database
-The database is split into two tables.
-Each entry into the `events` table carries the foreign key `file_id` - which can be used to identify which token an event belongs to.
-As this was thrown together very quickly, the database is not normalised. I would suggest adapting this database structure if deploying into production.
+The database is split into two tables.  
+Each entry into the `events` table carries the foreign key `file_id` - which can be used to identify which token an event belongs to.  
+As this was thrown together very quickly, the database is not normalised. I would suggest adapting this database structure if deploying into production.  
 
 File Metadata
 ```s
@@ -117,12 +117,13 @@ CREATE TABLE IF NOT EXISTS events (
 ```
 
 # Harvesting Events
-For collecting the data required to run the simulations, I used the [Codex](https://www.codex.io) API.
-Solana makes it incredibly difficult to harvest historical data, and therefore I opted to use their GraphQL interface.
-A query to `getTokenEvents` is made, however this query only returns a maximum of *200* results.
-Codex operates on a pay-by-request basis, and therefore this can get expensive pretty fast. I recommend limiting training data to a couple weeks, or writing a custom indexer to collect the data as it happens on-chain.
+For collecting the data required to run the simulations, I used the [Codex](https://www.codex.io) API.  
+Solana makes it incredibly difficult to harvest historical data, and therefore I opted to use their GraphQL interface.  
+A query to `getTokenEvents` is made, however this query only returns a maximum of *200* results.  
+Codex operates on a pay-by-request basis, and therefore this can get expensive pretty fast. I recommend limiting training data to a couple weeks, or writing a custom indexer to collect the data as it happens on-chain.  
 
-I found the best, and most efficient way to write data into the DB was to use the built in `COPY` command e.g.
-`COPY file_metadata FROM 'metadata.csv' (FORMAT CSV, HEADER true)`
+I found the best, and most efficient way to write data into the DB was to use the built in `COPY` command e.g.  
+`COPY file_metadata FROM 'metadata.csv' (FORMAT CSV, HEADER true)`  
 
-You can attempt to write your events in with individual queries, however when testing on a dataset that contained 30 days of data for 1000 tokens, I had over 73 billion datapoints. Writing the data individually instead of with a bulk insert will not only take an extreme amount of time, but you will likely run into I/O issues.
+You can attempt to write your events in with individual queries, however when testing on a dataset that contained 30 days of data for 1000 tokens, I had over 73 billion datapoints. Writing the data individually instead of with a bulk insert will not only take an extreme amount of time, but you will likely run into I/O issues.  
+
