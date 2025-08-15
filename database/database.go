@@ -15,7 +15,7 @@ type Database struct {
 }
 
 func Connect() Database {
-	db, err := sql.Open("duckdb", "signals.duckdb")
+	db, err := sql.Open("duckdb", "ultracalls.duckdb")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -134,6 +134,11 @@ func (db *Database) BatchGetEventsForTimestamps(timestamp int64, batch_size int6
 		var e models.Event
 		if err := rows.Scan(&e.FileID, &e.EventDisplayType, &e.QuoteToken, &e.SOLPrice, &e.TokenPrice, &e.Timestamp, &e.BlockNumber); err != nil {
 			return events, nil
+		}
+		if e.SOLPrice < e.TokenPrice {
+			tokenPriceBackup := e.TokenPrice
+			e.TokenPrice = e.SOLPrice
+			e.SOLPrice = tokenPriceBackup
 		}
 
 		events = append(events, e)

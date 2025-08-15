@@ -52,7 +52,7 @@ type SimStatus struct {
 	Done             bool   `json:"done"`
 }
 
-const BATCH_SIZE = 100
+const BATCH_SIZE = 250
 
 // const TAKE_PROFIT_1 = 20
 
@@ -65,11 +65,9 @@ func Init(db *database.Database, buyAmount float64, TPs []float64, TPAmounts []f
 			TotalBuyAmount:  0.0,
 			TotalSellAmount: 0.0,
 		},
-		TPs:       []float64{2, 10},
-		TPAmounts: []float64{0.5, 1},
-		CustomOpts: models.CustomOptions{
-			NYTradingTimes: false,
-		},
+		TPs:                 TPs,
+		TPAmounts:           TPAmounts,
+		CustomOpts:          CustomOpts,
 		Name:                SimulatorName,
 		BuyAmount:           buyAmount,
 		SlippagePercentage:  slippage,
@@ -95,10 +93,10 @@ func (s *Simulator) UpdateWalletBalance(e models.Event) {
 	s.Wallet.TotalUSDWorth = tokenUSDWorth + SOLUSDWorth
 	s.Wallet.TokenSOLWorth = tokenSOLWorth
 	s.Wallet.TokenUSDWorth = tokenUSDWorth
-	if !(math.IsNaN(e.SOLPrice)) && !math.IsNaN(tokenSOLWorth) && !math.IsNaN(s.Wallet.Balance) {
+	if !(math.IsNaN(e.SOLPrice)) && !math.IsNaN(tokenSOLWorth) && !math.IsNaN(s.Wallet.Balance) && e.SOLPrice > 50 {
 		s.Wallet.BalanceTracking[e.BlockNumber] = (tokenSOLWorth + s.Wallet.Balance) * e.SOLPrice
 	} else {
-		fmt.Println(e.SOLPrice, tokenSOLWorth, s.Wallet.Balance)
+		// fucked up sol price
 	}
 }
 
@@ -123,8 +121,6 @@ func (s *Simulator) process_events_chronologically(events []models.Event) (int, 
 							}
 						}
 
-						fmt.Println("[BUY] Bought token for 0.2 SOL at ", tm)
-						// 0.2 is the buy amount
 						asset.Balance = s.BuyAmount / event.TokenPrice
 						s.Wallet.Balance -= s.BuyAmount
 						asset.TPPrice = event.TokenPrice * s.TPs[0]
@@ -159,12 +155,10 @@ func (s *Simulator) process_events_chronologically(events []models.Event) (int, 
 							tokenSaleAmount := asset.Balance * s.TPAmounts[asset.TPStage]
 							saleValue := tokenSaleAmount * (event.TokenPrice)
 
-							fmt.Println("[TP-"+fmt.Sprint(asset.TPStage+1)+"] TP Hit (3 block delay) | Sell amount:", saleValue, "SOL", "| Sell Percentage:", s.TPAmounts[asset.TPStage]*100)
 							s.Wallet.Balance += saleValue
 							s.Stats.TotalSellAmount += saleValue
 
 							s.UpdateWalletBalance(event)
-							fmt.Println("Wallet Balance Update: new SOL Balance:", s.Wallet.Balance, "new Total USD worth: ", s.Wallet.TotalUSDWorth, "new token sol worth: ", s.Wallet.TokenSOLWorth, "new token usd worth: ", s.Wallet.TokenUSDWorth)
 
 							asset.Balance -= tokenSaleAmount
 
@@ -250,16 +244,6 @@ func (s *Simulator) Run(simStatus *SimStatus) {
 		}
 	}
 
-	fmt.Println("Final Wallet Balance Update: new SOL Balance:", s.Wallet.Balance, "new Total USD worth: ", s.Wallet.TotalUSDWorth, "new token sol worth: ", s.Wallet.TokenSOLWorth, "new token usd worth: ", s.Wallet.TokenUSDWorth)
-
-	fmt.Println("Processed from", time.Unix(s.SimulatorStartBlock, 0), "->", time.Unix(nextBlock, 0))
-
-	fmt.Println("-- Sim Stats -- ")
-	fmt.Println("Total Signals Bought:", s.Stats.TotalBuys)
-	fmt.Println("Total Signals Sold:", s.Stats.TotalSells)
-	fmt.Println("Total spent on signals:", s.Stats.TotalBuyAmount)
-	fmt.Println("Total SOL recieved from sells:", s.Stats.TotalSellAmount)
-
 	finalAssets := models.DeepCopyWallet(s.Wallet)
 	finalAssets.Assets = make(map[int]models.Asset)
 	for i, asset := range s.Wallet.Assets {
@@ -286,7 +270,8 @@ func (s *Simulator) Run(simStatus *SimStatus) {
 			newBalances[block] = bal
 		} else {
 			prev := keys[i-1]
-			if bal != s.Wallet.BalanceTracking[prev] {
+			// @business_rule Only store balance changes that are more then 10$ diff
+			if bal != s.Wallet.BalanceTracking[prev] && ((bal-s.Wallet.BalanceTracking[prev] > 10) || (bal-s.Wallet.BalanceTracking[prev] < -10)) {
 				newBalances[block] = bal
 			}
 		}
@@ -294,10 +279,6 @@ func (s *Simulator) Run(simStatus *SimStatus) {
 
 	finalAssets.BalanceTracking = newBalances
 
-	jsonBytes, err := json.MarshalIndent(finalAssets, "", "  ")
-	if err != nil {
-		log.Fatal(err)
-	}
 	currentTime := time.Now()
 
 	simID := rand.Intn(999999999-111111111+1) + 111111111
@@ -312,17 +293,48 @@ func (s *Simulator) Run(simStatus *SimStatus) {
 		ID:         simID,
 	}
 
+	portfolio := models.Portfolio{
+		SOLBalance:    s.Wallet.Balance,
+		TokenUSDWorth: s.Wallet.TokenUSDWorth,
+		TokenSOLWorth: s.Wallet.TokenSOLWorth,
+		TotalUSDWorth: s.Wallet.TotalUSDWorth,
+	}
+
 	metaBytes, metaErr := json.MarshalIndent(simulatorMetadata, "", "  ")
 	if metaErr != nil {
-		log.Fatal("meta err" + err.Error())
+		log.Fatal("meta err" + metaErr.Error())
 	}
 
-	err = ioutil.WriteFile("sim_output/"+fmt.Sprint(simID)+".json", jsonBytes, 0644)
-	err = ioutil.WriteFile("sim_output/"+fmt.Sprint(simID)+".json_meta", metaBytes, 0644)
+	ioutil.WriteFile("sim_output/"+fmt.Sprint(simID)+"_metadata.json", metaBytes, 0644)
 
-	if err != nil {
-		panic(err)
+	portBytes, portErr := json.MarshalIndent(portfolio, "", "  ")
+	if portErr != nil {
+		log.Fatal("port err" + portErr.Error())
 	}
+
+	ioutil.WriteFile("sim_output/"+fmt.Sprint(simID)+"_portfolio.json", portBytes, 0644)
+
+	assetBytes, assetErr := json.MarshalIndent(finalAssets.Assets, "", "  ")
+	if assetErr != nil {
+		log.Fatal("asset err" + assetErr.Error())
+	}
+
+	ioutil.WriteFile("sim_output/"+fmt.Sprint(simID)+"_assets.json", assetBytes, 0644)
+
+	balanceBytes, balanceErr := json.MarshalIndent(finalAssets.BalanceTracking, "", "  ")
+	if balanceErr != nil {
+		log.Fatal("balance err" + balanceErr.Error())
+	}
+
+	ioutil.WriteFile("sim_output/"+fmt.Sprint(simID)+"_balance_updates.json", balanceBytes, 0644)
+
+	tHistoryBytes, tHistoryErr := json.MarshalIndent(finalAssets.Events, "", "  ")
+
+	if tHistoryErr != nil {
+		log.Fatal("t history err" + tHistoryErr.Error())
+	}
+
+	ioutil.WriteFile("sim_output/"+fmt.Sprint(simID)+"_trade_history.json", tHistoryBytes, 0644)
 
 	s.Status.Done = true
 }

@@ -34,6 +34,13 @@ type Wallet struct {
 	Events          []SimEvent        `json:"sim_events"`
 }
 
+type Portfolio struct {
+	SOLBalance    float64 `json:"balance"`
+	TokenUSDWorth float64 `json:"token_usd_worth"`
+	TokenSOLWorth float64 `json:"token_sol_worth"`
+	TotalUSDWorth float64 `json:"total_usd_worth"`
+}
+
 type SimEvent struct {
 	BlockNumber int64
 	Type        string  `json:"type"`

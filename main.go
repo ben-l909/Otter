@@ -58,7 +58,7 @@ func main() {
 	r.POST("/run_sim", requestSimHandler)
 	r.GET("/running_sims", runningSimsHandler)
 
-	r.Run(":80")
+	r.Run(":8080")
 
 	signal.Notify(ShutdownSignal, syscall.SIGINT, syscall.SIGTERM)
 	go shutdown()
@@ -73,7 +73,6 @@ func requestSimHandler(c *gin.Context) {
 	}
 
 	dbConn := database.Connect()
-	fmt.Println(input)
 	s := simulator.Init(&dbConn,
 		input.BuyAmount,
 		input.TPs,
@@ -106,7 +105,7 @@ func listSimsHandler(c *gin.Context) {
 
 	var sims []models.SimulatorMetadata
 	for _, f := range files {
-		if f.IsDir() || !strings.HasSuffix(f.Name(), ".json_meta") {
+		if f.IsDir() || !strings.HasSuffix(f.Name(), "_metadata.json") {
 			continue
 		}
 
@@ -149,6 +148,9 @@ func runningSimsHandler(c *gin.Context) {
 func loadSimHandler(c *gin.Context) {
 	dir := "sim_output"
 	id := c.Query("id")
+
+	panel := c.Query("panel")
+
 	if id == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing id parameter"})
 		return
@@ -156,7 +158,7 @@ func loadSimHandler(c *gin.Context) {
 
 	// sanitize filename to avoid directory traversal
 	safeId := filepath.Base(id)
-	target := filepath.Join(dir, safeId+".json")
+	target := filepath.Join(dir, safeId+"_"+panel+".json")
 
 	data, err := ioutil.ReadFile(target)
 	if err != nil {
