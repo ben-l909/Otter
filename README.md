@@ -1,13 +1,16 @@
 # Otter
 
 Otter is a backtester for alt-coins, existing within the Solana blockchain.  
+  
 The project was hackily thrown together over a week, with an emphasis on functionality - rather then readability.  
 The aim of the project was to test "signal algorithms", hosted by many developers - which claim to have filters that are able to filter down the influx of new tokens on Solana, and generate calls that would leave a user in profit. Some channels advertised a win rate of up to 80%! Which is statistically very unlikely.  
+  
 I may get round to refactoring and cleaning up the codebase, however this project has mostly been abandoned.  
 
 # Simulation Output
 Due to the hacky nature of the project, simulations are stored as `.json` files in the `sim_output` directory.  
 Each simulation has five files: `_assets`, `_balance_updates`, `_metadata`, `_portfolio` and `_trade_history`.  
+  
 Assets is pretty much a direct copy of the `file_metadata` database, however it only contains the data for the tokens that were bought during that simulation.  
 Balance Updates stores a copy of the wallet balance (in USD) every tick (block number). It's important to note that this uses the USD/SOL conversion rate pulled from Codex to ensure that the USD balance also factors in moving SOL prices. As these simulations can span months in IRL time, this is very important. Sometimes, the SOL balance that Codex provides is invalid however. In this situation, the wallet balance data for that tick will **not** be saved.  
 Metadata contains the copy of the settings that the simulation was run with. Quite important if you're comparing strategies.
